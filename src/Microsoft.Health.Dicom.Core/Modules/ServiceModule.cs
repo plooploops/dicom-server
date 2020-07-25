@@ -3,10 +3,12 @@
 // Licensed under the MIT License (MIT). See LICENSE in the repo root for license information.
 // -------------------------------------------------------------------------------------------------
 
+using Dicom.Imaging;
 using EnsureThat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Health.Dicom.Core.Features.ChangeFeed;
 using Microsoft.Health.Dicom.Core.Features.Delete;
+using Microsoft.Health.Dicom.Core.Features.Export;
 using Microsoft.Health.Dicom.Core.Features.Query;
 using Microsoft.Health.Dicom.Core.Features.Retrieve;
 using Microsoft.Health.Dicom.Core.Features.Store;
@@ -105,6 +107,13 @@ namespace Microsoft.Health.Dicom.Core.Modules
                 .Singleton()
                 .AsSelf()
                 .AsImplementedInterfaces();
+
+            services.Add<ExportService>()
+                .Scoped()
+                .AsSelf()
+                .AsImplementedInterfaces();
+
+            ImageManager.SetImplementation(RawImageManager.Instance);
         }
     }
 }
