@@ -63,13 +63,6 @@ namespace Microsoft.Health.Dicom.Core.Features.Query
             return new QueryResourceResponse(responseMetadata);
         }
 
-        public async Task<QueryResult> QueryAsync(
-            QueryExpression queryExpression,
-            CancellationToken cancellationToken)
-        {
-            return await _queryStore.QueryAsync(queryExpression, cancellationToken);
-        }
-
         private void ValidateRequestIdentifiers(QueryResourceRequest message)
         {
             switch (message.QueryResourceType)

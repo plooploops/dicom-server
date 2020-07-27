@@ -8,10 +8,11 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Dicom.Core.Features.Export;
+using Microsoft.Health.Dicom.Core.Web;
 
 namespace Microsoft.Health.Dicom.Api.Controllers
 {
-    public partial class ExportController : Controller
+    public class ExportController : Controller
     {
         private readonly IExportService _exportService;
         private readonly ILogger<ExportController> _logger;
@@ -24,9 +25,14 @@ namespace Microsoft.Health.Dicom.Api.Controllers
 
         [HttpPost]
         [Route("export")]
-        public async Task<IActionResult> Export([FromBody] BlobAccessInformation destinationBlob)
+        public async Task<IActionResult> Export([FromBody] ExportRequest request)
         {
-            await _exportService.Export(destinationBlob.DestinationBlobConnectionString, destinationBlob.DestinationBlobContainerName, cancellationToken: HttpContext.RequestAborted);
+            await _exportService.Export(
+                request.Instances,
+                request.DestinationBlobConnectionString,
+                request.DestinationBlobContainerName,
+                KnownContentTypes.ApplicationDicom,
+                cancellationToken: HttpContext.RequestAborted);
 
             return StatusCode((int)HttpStatusCode.OK);
         }

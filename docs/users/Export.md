@@ -14,7 +14,8 @@ POST | /export            | Json Object
 ```
 {
     "destinationBlobConnectionString": "",
-    "destinationBlobContainerName": ""
+    "destinationBlobContainerName": "",
+    "instances": ["<studyInstanceUID>/<seriesInstanceUID>/<sopInstanceUID>", "", ""]
 }
 ```
 

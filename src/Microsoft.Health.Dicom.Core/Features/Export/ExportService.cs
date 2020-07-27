@@ -17,10 +17,9 @@ using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs.Specialized;
 using Dicom;
 using Dicom.Imaging;
-using Microsoft.Health.Dicom.Core.Features.Common;
-using Microsoft.Health.Dicom.Core.Features.Model;
-using Microsoft.Health.Dicom.Core.Features.Query;
-using Microsoft.Health.Dicom.Core.Features.Query.Model;
+using Microsoft.Extensions.Logging;
+using Microsoft.Health.Dicom.Core.Features.Retrieve;
+using Microsoft.Health.Dicom.Core.Messages.Retrieve;
 using Microsoft.Health.Dicom.Core.Web;
 using Microsoft.IO;
 
@@ -28,54 +27,81 @@ namespace Microsoft.Health.Dicom.Core.Features.Export
 {
     public class ExportService : IExportService
     {
-        private readonly IQueryService _queryService;
-        private readonly IFileStore _blobDataStore;
+        private readonly IRetrieveResourceService _retrieveResourceService;
+        private readonly ILogger<ExportService> _logger;
         private readonly RecyclableMemoryStreamManager _recyclableMemoryStreamManager;
+        private const string DefaultAcceptType = KnownContentTypes.ApplicationDicom;
+        private const string JpegAcceptType = KnownContentTypes.ImageJpeg;
 
-        public ExportService(IQueryService queryService, IFileStore blobDataStore, RecyclableMemoryStreamManager recyclableMemoryStreamManager)
+        public ExportService(IRetrieveResourceService retrieveResourceService, ILogger<ExportService> logger, RecyclableMemoryStreamManager recyclableMemoryStreamManager)
         {
-            _queryService = queryService;
-            _blobDataStore = blobDataStore;
+            _retrieveResourceService = retrieveResourceService;
+            _logger = logger;
             _recyclableMemoryStreamManager = recyclableMemoryStreamManager;
         }
 
-        public async Task Export(string destinationBlobConnectionString, string destinationBlobContainerName, CancellationToken cancellationToken)
+        public async Task Export(
+            IReadOnlyCollection<string> instances,
+            string destinationBlobConnectionString,
+            string destinationBlobContainerName,
+            string contentType = DefaultAcceptType,
+            CancellationToken cancellationToken = default)
         {
             BlobServiceClient blobServiceClient = new BlobServiceClient(destinationBlobConnectionString);
             BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(destinationBlobContainerName);
 
-            QueryExpression queryExpression = new QueryExpression(
-                QueryResource.AllInstances,
-                new QueryIncludeField(false, new List<DicomTag>(0)),
-                fuzzyMatching: false,
-                limit: 10,
-                offset: 0,
-                new List<QueryFilterCondition>(0));
-
-            QueryResult queryResult = await _queryService.QueryAsync(queryExpression, cancellationToken);
-
-            foreach (VersionedInstanceIdentifier instance in queryResult.DicomInstances)
+            foreach (string instance in instances)
             {
-                Stream dcmStream = await _blobDataStore.GetFileAsync(instance, cancellationToken);
+                Stream destinationStream = null;
+                try
+                {
+                    string[] uids = instance.Split('/');
+                    string studyInstanceUid = uids[0];
+                    string seriesInstanceUid = uids[1];
+                    string sopInstanceUid = uids[2];
+                    RetrieveResourceRequest retrieve = new RetrieveResourceRequest("*", studyInstanceUid, seriesInstanceUid, sopInstanceUid);
 
-                Stream imageStream = EncodeDicomFileAsImage(dcmStream);
+                    var response = await _retrieveResourceService.GetInstanceResourceAsync(retrieve, cancellationToken);
+                    destinationStream = response.ResponseStreams.First();
 
-                await SaveAsync(instance, imageStream, containerClient, cancellationToken);
-
-                // todo append metadata to csv
-
-                // log process information
+                    if (contentType == JpegAcceptType)
+                    {
+                        Stream imageStream = EncodeDicomFileAsImage(destinationStream);
+                        await SaveAsync(GetFileName(studyInstanceUid, seriesInstanceUid, sopInstanceUid, "jpeg"), imageStream, containerClient, JpegAcceptType, cancellationToken);
+                        imageStream?.DisposeAsync();
+                    }
+                    else
+                    {
+                        await SaveAsync(GetFileName(studyInstanceUid, seriesInstanceUid, sopInstanceUid, "dcm"), destinationStream, containerClient, DefaultAcceptType, cancellationToken);
+                    }
+                }
+                catch (Exception e)
+                {
+                    _logger.LogError($"Failed to export instance {instance}, error: {e}");
+                }
+                finally
+                {
+                    destinationStream?.DisposeAsync();
+                }
             }
         }
 
+        private string GetFileName(
+            string studyInstanceUid,
+            string seriesInstanceUid,
+            string sopInstanceUid,
+            string extension)
+        {
+            return $"{studyInstanceUid}-{seriesInstanceUid}-{sopInstanceUid}.{extension}";
+        }
+
         private async Task SaveAsync(
-            VersionedInstanceIdentifier versionedInstanceIdentifier,
+            string blobName,
             Stream imageStream,
             BlobContainerClient containerClient,
+            string contentType,
             CancellationToken cancellationToken)
         {
-            string blobName = $"{versionedInstanceIdentifier.StudyInstanceUid}-{versionedInstanceIdentifier.SeriesInstanceUid}-{versionedInstanceIdentifier.SopInstanceUid}.jpeg";
-
             var blobClient = containerClient.GetBlockBlobClient(blobName);
 
             imageStream.Seek(0, SeekOrigin.Begin);
@@ -84,7 +110,7 @@ namespace Microsoft.Health.Dicom.Core.Features.Export
                     imageStream,
                     new BlobHttpHeaders()
                     {
-                        ContentType = KnownContentTypes.ImageJpeg,
+                        ContentType = contentType,
                     },
                     metadata: null,
                     conditions: null,
@@ -100,23 +126,6 @@ namespace Microsoft.Health.Dicom.Core.Features.Export
             var dicomImage = new DicomImage(tempDicomFile.Dataset);
 
             return ToRenderedMemoryStream(dicomImage);
-        }
-
-        private static Bitmap ToBitmap(DicomImage image, int frame = 0)
-        {
-            byte[] bytes = image.RenderImage(frame).AsBytes();
-            var w = image.Width;
-            var h = image.Height;
-            var ch = 4;
-
-            var bmp = new Bitmap(image.Width, image.Height, PixelFormat.Format32bppArgb);
-
-            BitmapData bmData = bmp.LockBits(new System.Drawing.Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadWrite, bmp.PixelFormat);
-            IntPtr pNative = bmData.Scan0;
-            Marshal.Copy(bytes, 0, pNative, w * h * ch);
-            bmp.UnlockBits(bmData);
-
-            return bmp;
         }
 
         private MemoryStream ToRenderedMemoryStream(DicomImage dicomImage, int frame = 0)
@@ -139,6 +148,23 @@ namespace Microsoft.Health.Dicom.Core.Features.Export
             }
 
             return ms;
+        }
+
+        private static Bitmap ToBitmap(DicomImage image, int frame = 0)
+        {
+            byte[] bytes = image.RenderImage(frame).AsBytes();
+            var w = image.Width;
+            var h = image.Height;
+            var ch = 4;
+
+            var bmp = new Bitmap(image.Width, image.Height, PixelFormat.Format32bppArgb);
+
+            BitmapData bmData = bmp.LockBits(new System.Drawing.Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadWrite, bmp.PixelFormat);
+            IntPtr pNative = bmData.Scan0;
+            Marshal.Copy(bytes, 0, pNative, w * h * ch);
+            bmp.UnlockBits(bmData);
+
+            return bmp;
         }
     }
 }
