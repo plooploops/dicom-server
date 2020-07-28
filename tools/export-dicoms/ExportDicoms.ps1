@@ -2,7 +2,7 @@
 # Please update $BlobConnectionString, $BlobContainerName, $Instances, $ContentType, $Label before using this script
 
 # BlobConnectionString: the connection string to connect storage account. Can be found on Access keys setting of Storage Account
-[string]$BlobConnectionString = "DefaultEndpointsProtocol=https;AccountName=penchehackathon;AccountKey=ULxZk+PPZ9UcQdIsMishDBKzIbBdHw47fJtBhpf1AjFzzMpAPVRXytutn/ZYvpHlBQUcnYesW7BU5OqIIlwp7Q==;EndpointSuffix=core.windows.net"
+[string]$BlobConnectionString = "<Storage Account Connection String>"
 
 # BlobContainerName: the blob container name you want to export dicom file/images
 [string]$BlobContainerName = "exported" 
@@ -18,7 +18,7 @@
 [string]$ContentType = "application/dicom" # could be image/jpeg or application/dicom
 
 # The service host
-[string]$Host = "mlhack-dicom.azurewebsites.net"
+[string]$Host = "<The URL>"
 
 $ErrorActionPreference = "Stop"
 
