@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Health.Dicom.Core.Features.Export;
-using Microsoft.Health.Dicom.Core.Web;
 
 namespace Microsoft.Health.Dicom.Api.Controllers
 {
@@ -31,7 +30,7 @@ namespace Microsoft.Health.Dicom.Api.Controllers
                 request.Instances,
                 request.DestinationBlobConnectionString,
                 request.DestinationBlobContainerName,
-                KnownContentTypes.ApplicationDicom,
+                request.ContentType,
                 cancellationToken: HttpContext.RequestAborted);
 
             return StatusCode((int)HttpStatusCode.OK);

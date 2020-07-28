@@ -16,5 +16,7 @@ namespace Microsoft.Health.Dicom.Api.Controllers
 #pragma warning disable CA2227 // Collection properties should be read only
         public List<string> Instances { get; set; }
 #pragma warning restore CA2227 // Collection properties should be read only
+
+        public string ContentType { get; set; }
     }
 }
