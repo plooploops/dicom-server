@@ -42,6 +42,7 @@ namespace Microsoft.Health.Dicom.Core.Features.Export
             IReadOnlyCollection<string> instances,
             string destinationBlobConnectionString,
             string destinationBlobContainerName,
+            string label,
             string contentType = DefaultAcceptType,
             CancellationToken cancellationToken = default)
         {
@@ -65,12 +66,12 @@ namespace Microsoft.Health.Dicom.Core.Features.Export
                     if (contentType == JpegAcceptType)
                     {
                         Stream imageStream = EncodeDicomFileAsImage(destinationStream);
-                        await SaveAsync(GetFileName(studyInstanceUid, seriesInstanceUid, sopInstanceUid, "jpeg"), imageStream, containerClient, JpegAcceptType, cancellationToken);
+                        await SaveAsync(GetFileName(label, studyInstanceUid, seriesInstanceUid, sopInstanceUid, "jpeg"), imageStream, containerClient, JpegAcceptType, cancellationToken);
                         imageStream?.DisposeAsync();
                     }
                     else
                     {
-                        await SaveAsync(GetFileName(studyInstanceUid, seriesInstanceUid, sopInstanceUid, "dcm"), destinationStream, containerClient, DefaultAcceptType, cancellationToken);
+                        await SaveAsync(GetFileName(label, studyInstanceUid, seriesInstanceUid, sopInstanceUid, "dcm"), destinationStream, containerClient, DefaultAcceptType, cancellationToken);
                     }
                 }
                 catch (Exception e)
@@ -85,12 +86,14 @@ namespace Microsoft.Health.Dicom.Core.Features.Export
         }
 
         private string GetFileName(
+            string label,
             string studyInstanceUid,
             string seriesInstanceUid,
             string sopInstanceUid,
             string extension)
         {
-            return $"{studyInstanceUid}-{seriesInstanceUid}-{sopInstanceUid}.{extension}";
+            string folder = string.IsNullOrWhiteSpace(label) ? string.Empty : label + "/";
+            return $"{folder}{studyInstanceUid}-{seriesInstanceUid}-{sopInstanceUid}.{extension}";
         }
 
         private async Task SaveAsync(

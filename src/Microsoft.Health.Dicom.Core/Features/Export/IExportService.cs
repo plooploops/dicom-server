@@ -16,6 +16,7 @@ namespace Microsoft.Health.Dicom.Core.Features.Export
             IReadOnlyCollection<string> instances,
             string destinationBlobConnectionString,
             string destinationBlobContainerName,
+            string label,
             string contentType = KnownContentTypes.ApplicationDicom,
             CancellationToken cancellationToken = default);
     }

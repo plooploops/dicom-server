@@ -30,6 +30,7 @@ namespace Microsoft.Health.Dicom.Api.Controllers
                 request.Instances,
                 request.DestinationBlobConnectionString,
                 request.DestinationBlobContainerName,
+                request.Label,
                 request.ContentType,
                 cancellationToken: HttpContext.RequestAborted);
 
