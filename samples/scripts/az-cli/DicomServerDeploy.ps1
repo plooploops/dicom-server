@@ -4,8 +4,7 @@ $RG = 'my-dicom-rg'
 $DeploymentTemplateUri = 'https://dcmcistorage.blob.core.windows.net/cibuild/default-azuredeploy.json'
 $DicomServiceName = 'my-dicom-service'
 $Location = 'WestUS2'
-echo 'Please enter a SQL Admin Password'
-$SqlAdminPassword = Read-Host -AsSecureString
+$SqlAdminPassword = ConvertTo-SecureString "myPassw0rd!" -AsPlainText -Force
 az group create -n $RG -l $Location
 az deployment group create -g $RG --template-uri $DeploymentTemplateUri --parameters sqlAdminPassword=$SqlAdminPassword serviceName=$DicomServiceName
 
@@ -57,18 +56,6 @@ $DicomServiceClientAppRegistrationAppId = $DicomServiceClientAppRegistrationJson
 
 # want to set the permission to look like the following:
 az ad app permission add --id $DicomServiceClientAppRegistrationAppId --api $DicomWebAppId --api-permissions $currentOauthPermissionsId=Scope
-# [{
-#     "additionalProperties": null,
-#     "expiryTime": "N/A",
-#     "resourceAccess": [
-#       {
-#         "additionalProperties": null,
-#         "id": "ab1c9472-b2d8-466b-bec0-cb296d3786ca",
-#         "type": "Scope"
-#       }
-#     ],
-#     "resourceAppId": "81e926be-93cf-48a0-af5a-e27115e1f96c"
-# }]
 
 az ad app permission list --id $DicomServiceClientAppRegistrationAppId
 
